@@ -7,11 +7,18 @@
 # receiver plugged in):
 #   RTKBASE_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
 #
-# RTKBASE_USB_DEVICE must point at the receiver's device node, e.g. /dev/ttyUSB0,
+# RTKBASE_USB_DEVICE must point at the receiver's device node on the HOST, e.g. /dev/ttyUSB0,
 # /dev/ttyACM0, or (recommended, stable across reboots/re-enumeration) a path under
 # /dev/serial/by-id/. See RTKBASE_DOCKER_RECIPE.md section "USB/serial GNSS receiver
 # passthrough" for how to find it.
+#
+# The host path is always mapped to a FIXED path inside the container (/dev/ttyGNSS0),
+# regardless of what RTKBASE_USB_DEVICE is set to. This means the GNSS receiver device path
+# configured in RTKBase's web UI/settings.conf never has to change when the physical USB
+# port/device on the host changes (e.g. after unplugging/replugging, or moving to a different
+# port) -- only RTKBASE_USB_DEVICE and a container recreation are needed. See
+# RTKBASE_DOCKER_RECIPE.md section "Managing the container" for the full recreate procedure.
 services:
   rtkbase:
     devices:
-      - "${RTKBASE_USB_DEVICE:?Set RTKBASE_USB_DEVICE to the GNSS receiver device path, e.g. /dev/ttyACM0}:${RTKBASE_USB_DEVICE:?Set RTKBASE_USB_DEVICE to the GNSS receiver device path, e.g. /dev/ttyACM0}"
+      - "${RTKBASE_USB_DEVICE:?Set RTKBASE_USB_DEVICE to the GNSS receiver device path, e.g. /dev/ttyACM0}:/dev/ttyGNSS0"

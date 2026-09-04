@@ -143,9 +143,13 @@ default `docker compose up -d` workflow (e.g. on macOS) is unaffected.
    ```
    Or persist it in a `.env` file (`RTKBASE_USB_DEVICE=/dev/ttyACM0`) next to the compose files
    and just run `docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d`.
-3. From the RTKBase web UI, configure the GNSS receiver to use that same path inside the
-   container (the overlay maps the host path to the identical path in the container, so
-   whatever `RTKBASE_USB_DEVICE` was set to is what `settings.conf` should reference).
+3. From the RTKBase web UI, configure the GNSS receiver's port as **`/dev/ttyGNSS0`** — the
+   overlay always maps whatever host path `RTKBASE_USB_DEVICE` points to onto this fixed path
+   inside the container, regardless of the actual host-side device name. This means
+   `settings.conf` never needs to change when the physical USB port/device on the host changes
+   (e.g. the receiver gets unplugged and replugged into a different port, or moved to another
+   host) — only `RTKBASE_USB_DEVICE` and a container recreate are needed. See "Managing the
+   container" in section 4 for that recreate procedure.
 
 The container already runs `privileged: true` (needed for systemd, see section 2), so no
 additional udev/permission setup is required for the device node to be accessible.
@@ -296,43 +300,68 @@ docker run -d --name rtkbase \
   --tmpfs /run --tmpfs /run/lock \
   -p 8080:80 \
   -v /mnt/sda/docker/rtkbase-data:/persist \
-  --device=/dev/ttyUSB4:/dev/ttyUSB4 \
+  --device=/dev/ttyUSB4:/dev/ttyGNSS0 \
   --restart unless-stopped \
   rtkbase:latest
 ```
 
-- Replace `/dev/ttyUSB4` with your GNSS receiver's actual device path — on a RUTC50 this can
-  also be a stable `/dev/usb_serial_<id>` alias created by RutOS's own udev rules rather than a
-  plain `/dev/ttyUSB0`/`/dev/ttyACM0` (check with `ls -la /dev/ttyUSB* /dev/usb_serial_*` or
-  `dmesg` after plugging the receiver in). Configure the GNSS receiver in the RTKBase web UI to
-  use that same path.
+- Replace `/dev/ttyUSB4` (before the `:`) with your GNSS receiver's actual device path on the
+  **host** — on a RUTC50 this can also be a stable `/dev/usb_serial_<id>` alias created by
+  RutOS's own udev rules rather than a plain `/dev/ttyUSB0`/`/dev/ttyACM0` (check with `ls -la
+  /dev/ttyUSB* /dev/usb_serial_*` or `dmesg` after plugging the receiver in).
+- Keep the container side of the mapping (after the `:`) as the fixed `/dev/ttyGNSS0` — same
+  convention as the `docker-compose.usb.yml` overlay (section 3a). Configure the GNSS receiver
+  in the RTKBase web UI to use **`/dev/ttyGNSS0`**, once, and it never needs to change again
+  even if the host-side device path changes later (different USB port, re-enumeration after a
+  reboot, ...) — see "Managing the container" right below.
 - Adjust `/mnt/sda/docker/rtkbase-data` to wherever your external storage is mounted.
 - Check `docker images` first to confirm the loaded image's actual tag (`rtkbase:latest` or
   `rtkbase:<ref>`) if you didn't load both tags.
-- Manage it afterwards with plain `docker` commands: `docker ps -a`, `docker logs rtkbase`,
-  `docker restart rtkbase`, `docker stop rtkbase`, etc. — there is no `docker compose down`
-  equivalent needed since there's no compose project here, just `docker rm -f rtkbase` to
-  remove it.
 
-Persistent state lives under `./rtkbase-data/` on the host (`settings.conf`, `data/`, `logs/`),
-mounted at `/persist` in the container and symlinked into place by `entrypoint.sh`. Rebuilding
-the image (new RTKBase version) and recreating the container keeps that state intact.
+### 4d. Managing the container (restart, update the USB device, upgrade the image)
 
-**Always start the container via `docker compose up -d`, not a plain `docker run rtkbase:latest`.**
-Since this image runs systemd as PID 1 (see section 2), it needs the privileged mode, cgroup
-namespace and `/sys/fs/cgroup` mount that `docker-compose.yml` provides — without them systemd
-fails to boot and the container exits immediately (exit code 255, no logs). If you need the
-`docker run` equivalent (e.g. for scripting), reproduce the same flags:
+Whether started via `docker compose` or plain `docker run`, this is an ordinary Docker
+container — manage it with standard `docker` commands. A few operations are worth spelling out
+because some of this image's flags (`--device`, `--privileged`, volumes, ports, ...) are fixed
+at container-creation time and can't be changed on a running/stopped container in place:
 
-```bash
-docker run -d --name rtkbase \
-  --privileged --cgroupns=host \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  --tmpfs /run --tmpfs /run/lock \
-  -p 8080:80 \
-  -v "$(pwd)/rtkbase-data:/persist" \
-  rtkbase:latest
-```
+- **Just restart it** (e.g. after a reboot, or to pick up a `settings.conf` change made outside
+  the web UI): `docker restart rtkbase`. No recreation needed.
+- **Stop it without removing it** (e.g. to physically unplug/replug the *same* USB port):
+  `docker stop rtkbase` then `docker start rtkbase` when done. The container definition
+  (including its `--device` mapping) is preserved.
+- **Change which host USB device/port is passed through, or any other `docker run` flag**: the
+  container must be recreated — `docker stop`/`docker restart` alone won't pick up a different
+  `--device`. `docker container stop` only stops it, it does **not** free up the container name
+  for reuse (a subsequent `docker run --name rtkbase ...` fails with `Conflict. The container
+  name "/rtkbase" is already in use...` until the old one is actually removed):
+  ```bash
+  docker stop rtkbase
+  docker rm rtkbase
+  docker run -d --name rtkbase \
+    ... \
+    --device=/dev/ttyUSB2:/dev/ttyGNSS0 \
+    ... \
+    rtkbase:latest
+  ```
+  Thanks to the fixed container-side path (`/dev/ttyGNSS0`, see sections 3a/4c), only the
+  host-side path before the `:` needs to change here — `settings.conf`/the web UI's GNSS port
+  configuration does not need to be touched. (With `docker compose`, this recreate step happens
+  automatically: just re-run `docker compose ... up -d` with the new `RTKBASE_USB_DEVICE` value,
+  Compose detects the changed `--device` and recreates the container for you.)
+- **Upgrade to a newer RTKBase image**: rebuild/reload the new image under the same tag (e.g.
+  `rtkbase:latest`), then recreate the container the same way (`docker stop` + `docker rm` +
+  `docker run` with the same flags, or `docker compose up -d` again). Persistent state
+  (`settings.conf`, GNSS data, logs) lives entirely under the `/persist` volume
+  (`./rtkbase-data/` or `/mnt/sda/docker/rtkbase-data`, depending on the host) and survives the
+  recreation untouched.
+
+**Always start the container via `docker compose up -d` (or, on hosts without `docker compose`
+such as RutOS, the equivalent `docker run` from section 4c/4d) — never a bare `docker run
+rtkbase:latest` with no flags.** Since this image runs systemd as PID 1 (see section 2), it
+needs the privileged mode, cgroup namespace and `/sys/fs/cgroup` mount that `docker-compose.yml`
+(or the `docker run` examples above) provide — without them systemd fails to boot and the
+container exits immediately (exit code 255, no logs).
 
 ## 5. Rebuilding when the upstream repo is updated
 
