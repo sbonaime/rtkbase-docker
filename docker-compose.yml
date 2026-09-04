@@ -1,0 +1,26 @@
+services:
+  rtkbase:
+    build:
+      context: .
+      args:
+        RTKBASE_REF: ${RTKBASE_REF:-v2.7.0}
+    image: rtkbase:${RTKBASE_REF:-latest}
+    container_name: rtkbase
+    # Required to run systemd as PID 1 inside the container (see Dockerfile/README).
+    privileged: true
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./rtkbase-data:/persist
+    ports:
+      - "8080:80"
+    # Physical USB (serial-over-USB) GNSS receiver passthrough is an optional overlay,
+    # not part of this base file, so it keeps working unchanged on hosts with no
+    # receiver attached (e.g. macOS/Docker Desktop). To enable it on a Linux host (or a
+    # Linux-based device such as a Teltonika RUTC40) with the receiver plugged in:
+    #   RTKBASE_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
+    # See docker-compose.usb.yml and RTKBASE_DOCKER_RECIPE.md.
+    restart: unless-stopped

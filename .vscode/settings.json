@@ -1,0 +1,7 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "seq": true,
+        "docker run": true,
+        "git add": true
+    }
+}

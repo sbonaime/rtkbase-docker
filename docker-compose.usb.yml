@@ -1,0 +1,17 @@
+# Optional overlay: passes a physical USB (serial-over-USB) GNSS receiver through to the
+# container. Not merged by default so `docker compose up -d` keeps working unmodified on
+# hosts with no receiver attached (e.g. macOS/Docker Desktop, see RTKBASE_DOCKER_RECIPE.md
+# section "macOS / Apple Silicon (M1) limitations").
+#
+# Usage (Linux host, or a Linux-based device such as a Teltonika RUTC40, with the GNSS
+# receiver plugged in):
+#   RTKBASE_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
+#
+# RTKBASE_USB_DEVICE must point at the receiver's device node, e.g. /dev/ttyUSB0,
+# /dev/ttyACM0, or (recommended, stable across reboots/re-enumeration) a path under
+# /dev/serial/by-id/. See RTKBASE_DOCKER_RECIPE.md section "USB/serial GNSS receiver
+# passthrough" for how to find it.
+services:
+  rtkbase:
+    devices:
+      - "${RTKBASE_USB_DEVICE:?Set RTKBASE_USB_DEVICE to the GNSS receiver device path, e.g. /dev/ttyACM0}:${RTKBASE_USB_DEVICE:?Set RTKBASE_USB_DEVICE to the GNSS receiver device path, e.g. /dev/ttyACM0}"
