@@ -5,7 +5,7 @@ set -e
 
 RTKBASE_USER="${RTKBASE_USER:-basegnss}"
 RTKBASE_DIR="/home/${RTKBASE_USER}/rtkbase"
-PERSIST_DIR="/persist"
+PERSIST_DIR="/data"
 
 mkdir -p "${PERSIST_DIR}/data" "${PERSIST_DIR}/logs"
 

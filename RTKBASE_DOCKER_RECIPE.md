@@ -224,7 +224,7 @@ confirmed from an actual RUTC50 deployment (RutOS Docker feature):
 docker compose up -d
 
 # Run it with a physical USB/serial GNSS receiver passed through (Linux host, see section 3a):
-RTKBASE_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
+RTKBASE_USB_DEVICE=/dev/ttyACM0 HOST_DATA_DIR=/local_dir_for_data  docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
 
 # Web UI:
 open http://localhost:8080
@@ -284,39 +284,8 @@ Docker service, pointing its storage at external ext4 storage) needed before eit
 works.
 
 ### 4c. Running on RutOS (no `docker compose`) — plain `docker run`
+Use the `start-rtkbase-rutc50.sh` script in a crontab to start the image.
 
-As found in section 3b, RutOS ships no `docker compose`/`docker-compose` plugin at all. The
-following reproduces the exact same configuration as `docker-compose.yml` +
-`docker-compose.usb.yml` combined, using only the base `docker` CLI:
-
-```bash
-# Persistent state directory, on the external ext4 storage (see section 3b) rather than the
-# tiny internal flash:
-mkdir -p /mnt/sda/docker/rtkbase-data
-
-docker run -d --name rtkbase \
-  --privileged --cgroupns=host \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  --tmpfs /run --tmpfs /run/lock \
-  -p 8080:80 \
-  -v /mnt/sda/docker/rtkbase-data:/persist \
-  --device=/dev/ttyUSB4:/dev/ttyGNSS0 \
-  --restart unless-stopped \
-  rtkbase:latest
-```
-
-- Replace `/dev/ttyUSB4` (before the `:`) with your GNSS receiver's actual device path on the
-  **host** — on a RUTC50 this can also be a stable `/dev/usb_serial_<id>` alias created by
-  RutOS's own udev rules rather than a plain `/dev/ttyUSB0`/`/dev/ttyACM0` (check with `ls -la
-  /dev/ttyUSB* /dev/usb_serial_*` or `dmesg` after plugging the receiver in).
-- Keep the container side of the mapping (after the `:`) as the fixed `/dev/ttyGNSS0` — same
-  convention as the `docker-compose.usb.yml` overlay (section 3a). Configure the GNSS receiver
-  in the RTKBase web UI to use **`/dev/ttyGNSS0`**, once, and it never needs to change again
-  even if the host-side device path changes later (different USB port, re-enumeration after a
-  reboot, ...) — see "Managing the container" right below.
-- Adjust `/mnt/sda/docker/rtkbase-data` to wherever your external storage is mounted.
-- Check `docker images` first to confirm the loaded image's actual tag (`rtkbase:latest` or
-  `rtkbase:<ref>`) if you didn't load both tags.
 
 ### 4d. Managing the container (restart, update the USB device, upgrade the image)
 

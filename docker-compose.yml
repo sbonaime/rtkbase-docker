@@ -14,7 +14,7 @@ services:
       - /run/lock
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-      - ./rtkbase-data:/persist
+      - ${HOST_DATA_DIR:-./rtkbase-data}:/data
     ports:
       - "8080:80"
     # Physical USB (serial-over-USB) GNSS receiver passthrough is an optional overlay,

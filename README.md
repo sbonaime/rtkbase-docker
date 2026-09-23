@@ -11,14 +11,14 @@ GNSS receiver through to the container.
 
 ```bash
 ./build.sh                 # builds rtkbase:latest for the latest RTKBase release
-docker compose up -d
+HOST_DATA_DIR=/local_dir_for_data docker compose up -d  # <-- Ajout de la variable
 open http://localhost:8080
 ```
 
 ## Passing a physical USB/serial GNSS receiver through (Linux host)
 
 ```bash
-RTKBASE_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
+RTKBASE_USB_DEVICE=/dev/ttyACM0 HOST_DATA_DIR=/local_dir_for_data  docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
 ```
 
 ## Deploying on an ARM router/SBC (e.g. Teltonika RUTC50), with no registry access
