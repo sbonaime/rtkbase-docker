@@ -87,7 +87,7 @@ docker run -d --name "${CONTAINER_NAME}" \
     -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
     --tmpfs /run --tmpfs /run/lock \
     -p "${WEB_PORT}:80" \
-    -v "${PERSIST_DIR}:/persist" \
+    -v "${PERSIST_DIR}:/data" \
     --device="${GNSS_DEVICE}:/dev/ttyGNSS0" \
     --restart unless-stopped \
     "${IMAGE}"
