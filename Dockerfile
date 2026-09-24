@@ -46,6 +46,16 @@ RUN wget -q "https://raw.githubusercontent.com/Stefal/rtkbase/${RTKBASE_REF}/too
     && ./install.sh --user "${RTKBASE_USER}" --unit-files \
     && systemctl enable str2str_tcp.service \
     && rm install.sh \
+    # Patch check_timesync.sh for Docker: in container timesyncd is masked and host provides time.
+    # Wait until system year is at least 2024 to avoid 1970 timestamping on boot.
+    && echo '#!/bin/bash' > "/home/${RTKBASE_USER}/rtkbase/check_timesync.sh" \
+    && echo 'while [ "$$(date +%Y)" -lt 2024 ]; do sleep 2; done' >> "/home/${RTKBASE_USER}/rtkbase/check_timesync.sh" \
+    && echo 'exit 0' >> "/home/${RTKBASE_USER}/rtkbase/check_timesync.sh" \
+    && chmod +x "/home/${RTKBASE_USER}/rtkbase/check_timesync.sh" \
+    # Remove systemd sandbox restrictions (ProtectSystem/ProtectHome) that break writes to external volumes like /data
+    && sed -i 's/^ProtectSystem=strict/#ProtectSystem=strict/' /etc/systemd/system/str2str_*.service /etc/systemd/system/rtkbase_*.service \
+    && sed -i 's/^ProtectHome=read-only/#ProtectHome=read-only/' /etc/systemd/system/str2str_*.service /etc/systemd/system/rtkbase_*.service \
+    && sed -i 's|^ReadWritePaths=.*|& /data|' /etc/systemd/system/str2str_*.service /etc/systemd/system/rtkbase_*.service \
     # --- Strip build-only weight that would otherwise ship in the final image ---
     # Full .git history of the cloned rtkbase repo (~250-300MB): never read at runtime.
     && rm -rf "/home/${RTKBASE_USER}/rtkbase/.git" \
@@ -123,6 +133,6 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 80
 
 # Everything that must survive an image rebuild (settings.conf, raw gnss data, logs).
-VOLUME ["/persist"]
+VOLUME ["/data"]
 
 ENTRYPOINT ["/entrypoint.sh"]

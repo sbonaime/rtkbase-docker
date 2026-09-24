@@ -76,7 +76,7 @@ fi
 #    host path next time (different USB port, re-enumeration order, ...).
 #mkdir -p "${PERSIST_DIR}"
 mkdir -p "${PERSIST_DIR}"
-log "Starting '${CONTAINER_NAME}' (${GNSS_DEVICE} -> :/dev/ttyUSB0)..."
+log "Starting '${CONTAINER_NAME}' (${GNSS_DEVICE} -> /dev/ttyGNSS0)..."
 echo "CONTAINER_NAME ${CONTAINER_NAME}"
 echo "PERSIST_DIR ${PERSIST_DIR}"
 echo "GNSS_DEVICE ${GNSS_DEVICE}"
@@ -84,12 +84,21 @@ echo "IMAGE ${IMAGE}"
 
 
 
+ENTRYPOINT_MOUNT=""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "${SCRIPT_DIR}/entrypoint.sh" ]; then
+    ENTRYPOINT_MOUNT="-v ${SCRIPT_DIR}/entrypoint.sh:/entrypoint.sh"
+elif [ -f "/mnt/sda/docker/entrypoint.sh" ]; then
+    ENTRYPOINT_MOUNT="-v /mnt/sda/docker/entrypoint.sh:/entrypoint.sh"
+fi
+
 docker run -d --name "${CONTAINER_NAME}" \
     --privileged --cgroupns=host \
     -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
     --tmpfs /run --tmpfs /run/lock \
     -p "${WEB_PORT}:80" \
     -v "${PERSIST_DIR}:/data" \
+    ${ENTRYPOINT_MOUNT} \
     --device="${GNSS_DEVICE}:/dev/ttyGNSS0" \
     --restart unless-stopped \
     "${IMAGE}"

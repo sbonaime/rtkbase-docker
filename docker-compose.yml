@@ -15,6 +15,7 @@ services:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
       - ${HOST_DATA_DIR:-./rtkbase-data}:/data
+      - ./entrypoint.sh:/entrypoint.sh:ro
     ports:
       - "8080:80"
     # Physical USB (serial-over-USB) GNSS receiver passthrough is an optional overlay,
