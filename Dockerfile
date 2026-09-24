@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # install.sh refuses to run as a "real" login user detection when there is none
 # (docker build has no logname); it must be told explicitly which user to use.
-RUN useradd -m -s /bin/bash "${RTKBASE_USER}" \
+RUN useradd -u 1000 -m -s /bin/bash "${RTKBASE_USER}" \
     && echo "${RTKBASE_USER} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${RTKBASE_USER}"
 
 WORKDIR /home/${RTKBASE_USER}
@@ -99,7 +99,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # `apt-get install polkitd` guard never fires, confirmed by /etc/polkit-1 also being absent in
 # the previous single-stage image) — services already run fine as root here, so nothing to
 # reproduce for it.
-RUN useradd -m -s /bin/bash "${RTKBASE_USER}" \
+RUN useradd -u 1000 -m -s /bin/bash "${RTKBASE_USER}" \
     && echo "${RTKBASE_USER} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${RTKBASE_USER}" \
     && usermod -a -G dialout "${RTKBASE_USER}"
 

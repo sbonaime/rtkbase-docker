@@ -82,6 +82,8 @@ echo "PERSIST_DIR ${PERSIST_DIR}"
 echo "GNSS_DEVICE ${GNSS_DEVICE}"
 echo "IMAGE ${IMAGE}"
 
+
+
 docker run -d --name "${CONTAINER_NAME}" \
     --privileged --cgroupns=host \
     -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
