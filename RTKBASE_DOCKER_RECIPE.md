@@ -1,7 +1,8 @@
 # RTKBase Docker Recipe
 
 > Recipe to build and rebuild a Docker image of https://github.com/Stefal/rtkbase,
-> intended to run on a MacBook Air M1 (Apple Silicon / arm64) with Docker Desktop.
+> intended to run on ARM64 devices, such as a MacBook Air M1 (Apple Silicon) for testing,
+> or a Teltonika RUTC50 modem for production.
 
 Files in this repo:
 - [`Dockerfile`](Dockerfile) — builds the image from a chosen RTKBase git ref.
@@ -11,6 +12,8 @@ Files in this repo:
   USB/serial GNSS receiver through to the container (see section 3a).
 - [`build.sh`](build.sh) — builds/tags an image for a given ref (defaults to the latest release),
   and exports it as `rtkbase-<ref>.tar.gz` at the repo root for offline transfer (see section 4b).
+- [`start-rtkbase-rutc50.sh`](start-rtkbase-rutc50.sh) — helper script to launch the container on a
+  Teltonika RUTC50 modem.
 
 ## 1. What RTKBase is
 
@@ -47,6 +50,13 @@ Key components:
 
 Upstream requirements: **Debian >= 12 (bookworm)**, **Python >= 3.11**.
 
+## 1a. Target Hardware: Teltonika RUTC50
+The primary production target for this Dockerized version is the **Teltonika RUTC50**.
+Since the RUTC50 is an ARM64 device running a modified OpenWrt/Linux environment, the
+multi-stage build ensures the image is compact enough to be stored and run on the modem's
+internal storage. The `start-rtkbase-rutc50.sh` script handles the specific deployment
+requirements for this hardware.
+
 ## 2. Consequence: why this image runs systemd as PID 1
 
 Because `pystemd`/`systemctl`/`journalctl` are baked into the web app itself (not something we
@@ -82,12 +92,17 @@ image, discovered by inspecting the built image's filesystem (`docker history` /
 - The cloned `rtkbase` repo's `.git` directory (**~280MB** of history, never read at runtime).
 - `tools/bin/` prebuilt RTKLIB binaries for other SBC architectures/models (armv6l, armv7l, and
   an aarch64 copy) — `install.sh` only uses these when
-  `/sys/firmware/devicetree/base/model` matches a short Raspberry Pi/Orange Pi allowlist, which a
-  generic container (or a Teltonika router) never does, so it always compiles from source
-  instead; the binary that's actually used is already installed to `/usr/local/bin`.
-- Leftover `pip`/`apt` caches from `install.sh`'s own internal `pip install`/`apt-get install`
-  calls.
+  `/sys/firmware/devicetree/base/mo
 
+### Functional Testing on macOS (Apple Silicon)
+To validate the image before deploying to the Teltonika modem, you can run it on a Mac with
+Apple Silicon (M1/M2/M3) using Docker Desktop:
+1. Use `docker-compose.yml` to launch the container.
+2. Ensure the container is run in `privileged` mode to allow `systemd` to initialize.
+3. Access the web UI via `http://localhost:8080`.
+4. Verify that the services (like `rtkbase_web`) are reported as "active" in the UI, which
+   confirms that the internal `systemd` and `pystemd` communication is working correctly
+   even on the macOS virtualization layer
 **Measured result** (`docker buildx build --platform linux/arm64`, RTKBase v2.7.0): **1.42GB →
 462MB**, about a **67% reduction**. Verified functionally identical to the previous single-stage
 image by running both side by side (`docker run` with the same privileged/cgroup flags as

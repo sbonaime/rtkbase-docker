@@ -32,6 +32,16 @@ exit 0
 EOF
 chmod +x "${RTKBASE_DIR}/check_timesync.sh"
 
+# Restauration de l'état des services depuis le volume persistant
+if [[ -f "${PERSIST_DIR}/services_state.txt" ]]; then
+    echo "Restoring service states from ${PERSIST_DIR}/services_state.txt..."
+    while read -r service state; do
+        if [[ "$state" == "active" ]]; then
+            systemctl start "$service" || true
+        fi
+    done < "${PERSIST_DIR}/services_state.txt"
+fi
+
 # Relâcher ProtectSystem/ProtectHome de systemd qui empêchent l'écriture sur /data
 for unit in /etc/systemd/system/str2str_*.service /etc/systemd/system/rtkbase_*.service; do
     if [[ -f "$unit" ]]; then

@@ -1,61 +1,94 @@
 # RTKBase Docker
 
-A Docker recipe for [RTKBase](https://github.com/Stefal/rtkbase) — a GNSS base station web
-frontend for RTKLIB — that isn't officially containerized upstream. Builds a `linux/arm64`
-image (Apple Silicon / arm64 Linux SBCs and routers) with a multi-stage `Dockerfile` to keep the
-final image small (~460MB), runs it with systemd as PID 1 so RTKBase's own service management
-(`pystemd`/`systemctl`) keeps working unmodified, and supports passing a physical USB/serial
-GNSS receiver through to the container.
+Simplified installation of RTKBase in a Docker container for ARM routers (e.g., Teltonika RUTC50) and macOS Apple Silicon.
 
-## Quick start (macOS / Apple Silicon)
+## 🚀 Quick Start (macOS Apple Silicon)
 
+1. **Build the image**:
+   ```bash
+   ./build.sh
+   ```
+2. **Run the container**:
+   ```bash
+   HOST_DATA_DIR=./rtkbase-data docker compose up -d
+   ```
+3. **Access the interface**:
+   Open your browser at: `http://localhost:8888`
+
+## 🛠️ Deployment on Router (Teltonika RUTC50)
+
+### 📦 Installation Directory & Storage
+The container and its data must be stored in a dedicated installation directory on the router.
+
+**Important**: If you use a USB flash drive for this installation directory, you will need a **USB hub** to connect both the GNSS receiver and the USB drive simultaneously.
+
+The installation directory must use a Linux-native filesystem (**ext4**). FAT32/exFAT are not supported because Docker's `overlay2` storage driver requires specific symlinks and permissions.
+
+**To format a USB drive to ext4 (⚠️ this erases all data):**
 ```bash
-./build.sh                 # builds rtkbase:latest for the latest RTKBase release
-HOST_DATA_DIR=/local_dir_for_data docker compose up -d  # <-- Ajout de la variable
-open http://localhost:8080
+mkfs.ext4 -F /dev/sda
 ```
 
-## Passing a physical USB/serial GNSS receiver through (Linux host)
+### 🚀 Setup Steps
 
-```bash
-RTKBASE_USB_DEVICE=/dev/ttyACM0 HOST_DATA_DIR=/local_dir_for_data  docker compose -f docker-compose.yml -f docker-compose.usb.yml up -d
-```
+1. **Transfer the image**:
+   Build the image on Mac, then transfer the generated `.tar.gz` file to the router via `scp` (e.g., to `/mnt/sda/docker/`).
+2. **Load the image on the router**:
+   ```bash
+   docker load -i /mnt/sda/docker/rtkbase-vX.Y.Z.tar.gz
+   ```
+3. **Configure Docker storage**:
+   Point Docker's storage to your installation directory (e.g., `/mnt/sda/docker/data`) to avoid filling up the internal flash:
+   ```bash
+   rm -f /var/run/docker.pid
+   uci set dockerd.globals.enabled='1'
+   uci set dockerd.globals.data_root='/mnt/sda/docker/data'
+   uci commit dockerd
 
-## Deploying on an ARM router/SBC (e.g. Teltonika RUTC50), with no registry access
+   mkdir -p /mnt/sda/docker/data
+   mkdir -p /mnt/sda/docker/rtkbase-data
+   dockerd --data-root=/mnt/sda/docker/data > /mnt/sda/docker/dockerd.log 2>&1 &
+   ```
+4. **Run the container**:
+   Use the provided startup script:
+   ```bash
+   chmod +x /mnt/sda/docker/start-rtkbase-rutc50.sh
+   /mnt/sda/docker/start-rtkbase-rutc50.sh
+   ```
+   The script is idempotent: it removes any pre-existing `rtkbase` container first, waits for `dockerd` and the GNSS USB device to be ready, then (re)creates the container.
 
-```bash
-./build.sh v2.7.0                       # also exports ./rtkbase-<ref>.tar.gz
-scp rtkbase-v2.7.0.tar.gz root@<device-ip>:/tmp/
-# then on the device:
-docker load -i /tmp/rtkbase-v2.7.0.tar.gz
-```
+   *Note: If your GNSS device uses a different path, you can override the detection glob:*
+   ```bash
+   GNSS_DEVICE_GLOB='/dev/usb_serial_*' /mnt/sda/docker/start-rtkbase-rutc50.sh
+   ```
 
-See [Teltonika-rtkbase.md](Teltonika-rtkbase.md) for the full field-tested steps specific to a
-Teltonika RUTC50 (RutOS), including formatting external storage and running the container with
-plain `docker run` since RutOS ships no `docker compose`.
+5. **Web Access**:
+   The interface is accessible at: `http://<router-ip>:8888` (or the port configured in the script). In the web UI, configure the GNSS receiver port as `/dev/ttyGNSS0`.
 
-## Documentation
+### 🔄 Automatic Start at Boot
+Because the container definition survives reboots when stored on external storage, a simple `docker run` would fail with a "Conflict" error. The `start-rtkbase-rutc50.sh` script solves this by cleaning up previous instances.
 
-**[RTKBASE_DOCKER_RECIPE.md](RTKBASE_DOCKER_RECIPE.md)** is the full recipe: how RTKBase works
-and why this image runs systemd as PID 1, the multi-stage build that keeps the image small,
-macOS/Apple Silicon limitations, USB passthrough, ARM router/SBC considerations, build/usage
-examples, and validation status.
+To run it automatically at boot, add it as a **RutOS startup script**:
+In the router's web UI, go to **System → Custom scripts**, and add the path to the script in the "Startup script" section.
 
-## Files in this repo
+## 🛠️ Deployment on Router (Teltonika RUTC50)
 
-- [`Dockerfile`](Dockerfile) — multi-stage build of the image from a chosen RTKBase git ref.
-- [`entrypoint.sh`](entrypoint.sh) — wires up persistent state, then starts systemd.
-- [`docker-compose.yml`](docker-compose.yml) — run configuration (privileged mode, volumes, port).
-- [`docker-compose.usb.yml`](docker-compose.usb.yml) — optional overlay to pass a physical
-  USB/serial GNSS receiver through to the container.
-- [`build.sh`](build.sh) — builds/tags an image for a given ref (defaults to the latest release),
-  and exports it as `rtkbase-<ref>.tar.gz` for offline transfer to devices with no registry access.
-- [`Teltonika-rtkbase.md`](Teltonika-rtkbase.md) — field notes for deploying on a Teltonika
-  RUTC50 router.
+1. **Transfer the image**:
+   Build the image on Mac, then transfer the generated `.tar.gz` file to the router via `scp`.
+2. **Load the image on the router**:
+   ```bash
+   docker load -i /tmp/rtkbase-vX.Y.Z.tar.gz
+   ```
+3. **Run the container**:
+   Use the startup script:
+   ```bash
+   ./start-rtkbase-rutc50.sh
+   ```
+4. **Web Access**:
+   The interface is accessible at: `http://<router-ip>:8888`
 
-## Disclaimer
-
-RTKBase itself is not designed to run in a container and has no official Docker support; this
-recipe reproduces its installer (`tools/install.sh`) inside an image. See
-[RTKBASE_DOCKER_RECIPE.md](RTKBASE_DOCKER_RECIPE.md) for known limitations (e.g. macOS/Docker
-Desktop has no direct USB passthrough).
+## 📌 Key Points
+- **Web Interface**: Accessible on port **8888**.
+- **Persistence**: Data and configurations are saved in the `rtkbase-data` folder.
+- **Services**: systemd service states are automatically saved and restored upon container restart.
+- **Network**: The container uses `host` mode to ensure data flows (port 2101) are not blocked.

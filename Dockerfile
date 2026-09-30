@@ -23,7 +23,7 @@ ARG RTKBASE_USER=basegnss
 # (rtkbase_requirements() copies udev rules there; install_polkit_rules.sh apt-get installs
 # polkitd itself if missing). Discarded with this whole stage either way.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        systemd systemd-sysv udev dbus git wget ca-certificates sudo \
+        systemd systemd-sysv udev dbus  vim git wget ca-certificates sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # install.sh refuses to run as a "real" login user detection when there is none
@@ -91,16 +91,20 @@ ENV RTKBASE_USER=${RTKBASE_USER}
 # compiler/dev headers/git/wget/pip that only the builder stage needs. (polkitd is
 # deliberately not installed: install.sh's install_polkit_rules.sh never actually manages to
 # install/use it on this base image either, see the user/group RUN step below.)
+# Install diagnostic tools and cron for state backup
 RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd systemd-sysv udev dbus sudo ca-certificates \
         python3 python3-serial \
-        pps-tools bc dos2unix socat zip unzip psmisc proj-bin nftables \
+        pps-tools bc dos2unix socat zip unzip psmisc proj-bin \
+        iproute2 tcpdump iputils-ping vim cron \
         libxml2 libxslt1.1 libssl3 libffi8 \
     && rm -rf /var/lib/apt/lists/* \
     && systemctl mask \
         systemd-udevd.service systemd-udevd-kernel.socket systemd-udevd-control.socket \
         getty.target getty-static.service console-getty.service \
-        systemd-timesyncd.service || true
+        systemd-timesyncd.service || true \
+    && echo "* * * * * root systemctl list-units --type=service --state=running --no-legend | awk '{print \$1}' > /data/services_state.txt" > /etc/cron.d/rtkbase-state-backup \
+    && chmod 0644 /etc/cron.d/rtkbase-state-backup
 
 # Recreate the same user/groups install.sh set up in the builder stage (dialout for serial
 # port access). Note: install.sh's install_polkit_rules.sh (meant to let rtkbase_web control
@@ -129,8 +133,10 @@ COPY --from=builder /etc/environment /etc/environment
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+
 # Default RTKBase web port (settings.conf -> [general] web_port).
-EXPOSE 80
+EXPOSE 8888
+EXPOSE 2101
 
 # Everything that must survive an image rebuild (settings.conf, raw gnss data, logs).
 VOLUME ["/data"]

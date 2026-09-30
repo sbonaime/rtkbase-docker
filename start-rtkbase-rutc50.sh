@@ -10,7 +10,7 @@
 #   CONTAINER_NAME       Container name (default: rtkbase)
 #   DOCKER_DATA_ROOT     dockerd --data-root (default: /mnt/sda/docker/data)
 #   PERSIST_DIR          Host path mounted at /persist (default: /mnt/sda/docker/rtkbase-data)
-#   WEB_PORT             Host port for the web UI (default: 8080)
+#   WEB_PORT             Host port for the web UI (default: 8888)
 #   GNSS_DEVICE_GLOB     Shell glob to find the GNSS receiver's device node
 #                        (default: /dev/ttyUSB*; e.g. /dev/usb_serial_* on some RutOS setups)
 #   WAIT_TIMEOUT         Seconds to wait for dockerd/the USB device at boot (default: 60)
@@ -21,7 +21,8 @@ IMAGE="${IMAGE:-rtkbase:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-rtkbase}"
 DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-/mnt/sda/docker/data}"
 PERSIST_DIR="${PERSIST_DIR:-/mnt/sda/docker/rtkbase-data}"
-WEB_PORT="${WEB_PORT:-8080}"
+WEB_PORT="${WEB_PORT:-8888}"
+NTRIP_PORT="${NTRIP_PORT:-2101}"
 
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-60}"
 
@@ -70,20 +71,18 @@ if docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
     docker rm -f "${CONTAINER_NAME}"
 fi
 
-# 4. (Re)create it. The GNSS device is always mapped to the fixed /dev/ttyGNSS0 path inside
-#    the container (see RTKBASE_DOCKER_RECIPE.md section 3a/4c), so settings.conf/the web UI's
-#    GNSS port configuration never has to change even if GNSS_DEVICE resolves to a different
-#    host path next time (different USB port, re-enumeration order, ...).
-#mkdir -p "${PERSIST_DIR}"
+# 4. (Re)create it. We use --network host to ensure all ports (including 2101) are open.
 mkdir -p "${PERSIST_DIR}"
-log "Starting '${CONTAINER_NAME}' (${GNSS_DEVICE} -> /dev/ttyGNSS0)..."
-echo "CONTAINER_NAME ${CONTAINER_NAME}"
-echo "PERSIST_DIR ${PERSIST_DIR}"
-echo "GNSS_DEVICE ${GNSS_DEVICE}"
-echo "IMAGE ${IMAGE}"
 
+# Update web port in settings.conf to avoid conflict with router UI
+if [ -f "${PERSIST_DIR}/settings.conf" ]; then
+    log "Updating web_port to ${WEB_PORT} in settings.conf..."
+    sed -i "s/^web_port=.*/web_port=${WEB_PORT}/" "${PERSIST_DIR}/settings.conf"
+fi
 
+log "Starting '${CONTAINER_NAME}' on host network..."
 
+# Determine entrypoint mount
 ENTRYPOINT_MOUNT=""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "${SCRIPT_DIR}/entrypoint.sh" ]; then
@@ -94,9 +93,9 @@ fi
 
 docker run -d --name "${CONTAINER_NAME}" \
     --privileged --cgroupns=host \
+    --network host \
     -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
     --tmpfs /run --tmpfs /run/lock \
-    -p "${WEB_PORT}:80" \
     -v "${PERSIST_DIR}:/data" \
     ${ENTRYPOINT_MOUNT} \
     --device="${GNSS_DEVICE}:/dev/ttyGNSS0" \

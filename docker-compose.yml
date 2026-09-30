@@ -6,6 +6,8 @@ services:
         RTKBASE_REF: ${RTKBASE_REF:-v2.7.0}
     image: rtkbase:${RTKBASE_REF:-latest}
     container_name: rtkbase
+    # Use host network to avoid port mapping issues and allow transparent egress/ingress
+    network_mode: host
     # Required to run systemd as PID 1 inside the container (see Dockerfile/README).
     privileged: true
     cgroup: host
@@ -16,8 +18,6 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
       - ${HOST_DATA_DIR:-./rtkbase-data}:/data
       - ./entrypoint.sh:/entrypoint.sh:ro
-    ports:
-      - "8080:80"
     # Physical USB (serial-over-USB) GNSS receiver passthrough is an optional overlay,
     # not part of this base file, so it keeps working unchanged on hosts with no
     # receiver attached (e.g. macOS/Docker Desktop). To enable it on a Linux host (or a
