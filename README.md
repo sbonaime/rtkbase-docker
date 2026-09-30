@@ -50,6 +50,11 @@ mkfs.ext4 -F /dev/sda
 
 ### 🚀 Setup Steps
 
+1. **Configure router for RTKBase**
+   1. Add a wireguard or other VPN access to the router to access the RTKBase web interface remotely.
+   1. Configure the firewall to allow "Port forwarding" for the web interface on port 8888
+![Port forwarding configuration for RTKBase on RUTC50](images/rutc50_port_forwarding.png)
+
 1. **Transfer the image**:
    1. Build the image on Mac
 
