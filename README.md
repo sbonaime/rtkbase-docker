@@ -2,6 +2,18 @@
 
 Simplified installation of RTKBase in a Docker container for ARM routers (e.g., Teltonika RUTC50) and macOS Apple Silicon.
 
+## 📋 Requirements
+
+- **For macOS**:
+  - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+  - macOS Apple Silicon (M1, M2, M3, etc.).
+- **For Teltonika Router**:
+  - Teltonika RUTC50 (or compatible ARM router).
+  - USB GNSS receiver (e.g., UM980, ...)
+  - If using a USB drive, an USB hub
+
+
+
 ## 🚀 Quick Start (macOS Apple Silicon)
 
 1. **Build the image**:
@@ -32,7 +44,11 @@ mkfs.ext4 -F /dev/sda
 ### 🚀 Setup Steps
 
 1. **Transfer the image**:
-   Build the image on Mac, then transfer the generated `.tar.gz` file to the router via `scp` (e.g., to `/mnt/sda/docker/`).
+   1. Build the image on Mac
+   ```bash
+   ./build.sh
+   ```
+   1. Transfer the generated `.tar.gz` file to the router via `scp` (e.g., to `/mnt/sda/docker/`).
 2. **Load the image on the router**:
    ```bash
    docker load -i /mnt/sda/docker/rtkbase-vX.Y.Z.tar.gz
@@ -69,31 +85,7 @@ mkfs.ext4 -F /dev/sda
 Because the container definition survives reboots when stored on external storage, a simple `docker run` would fail with a "Conflict" error. The `start-rtkbase-rutc.sh` script solves this by cleaning up previous instances.
 
 To run it automatically at boot, add it as a **RutOS startup script**:
-In the router's web UI, go to **System → Custom scripts**, and add the path to the script in the "Startup script" section.
-
-## 🛠️ Deployment on Router (Teltonika RUTC50)
-
-1. **Configure router for RTKBase**
-   1. Add a wireguard or other VPN access to the router to access the RTKBase web interface remotely.
-   1. Configure the firewall to allow "Port forwarding" for the web interface on port 8888
-![Port forwarding configuration for RTKBase on RUTC50](images/rutc50_port_forwarding.png)
-
-1. **Transfer the image**:
-   Build the image on Mac, then transfer the generated `.tar.gz` file to the router via `scp`.
-1. **Load the image on the router**:
-   ```bash
-   docker load -i /tmp/rtkbase-vX.Y.Z.tar.gz
-   ```
-1. **Run the container**:
-   Use the startup script:
-   ```bash
-   ./start-rtkbase-rutc.sh
-   ```
-   A crontab entry can be added to run this script at boot.
-   @reboot /usr/local/home/root/bin/start-rtkbase-rutc.sh
-
-1. **Web Access**:
-   The interface is accessible at: `http://<router-ip>:8888`
+In the router's web UI, go to **System → Maintenance → Custom scripts**, and add the path to the script in the "Startup script" section.
 
 ## Container Management
 - **Stop the container**:
