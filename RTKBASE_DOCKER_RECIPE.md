@@ -12,7 +12,7 @@ Files in this repo:
   USB/serial GNSS receiver through to the container (see section 3a).
 - [`build.sh`](build.sh) — builds/tags an image for a given ref (defaults to the latest release),
   and exports it as `rtkbase-<ref>.tar.gz` at the repo root for offline transfer (see section 4b).
-- [`start-rtkbase-rutc50.sh`](start-rtkbase-rutc50.sh) — helper script to launch the container on a
+- [`start-rtkbase-rutc.sh`](start-rtkbase-rutc.sh) — helper script to launch the container on a
   Teltonika RUTC50 modem.
 
 ## 1. What RTKBase is
@@ -54,7 +54,7 @@ Upstream requirements: **Debian >= 12 (bookworm)**, **Python >= 3.11**.
 The primary production target for this Dockerized version is the **Teltonika RUTC50**.
 Since the RUTC50 is an ARM64 device running a modified OpenWrt/Linux environment, the
 multi-stage build ensures the image is compact enough to be stored and run on the modem's
-internal storage. The `start-rtkbase-rutc50.sh` script handles the specific deployment
+internal storage. The `start-rtkbase-rutc.sh` script handles the specific deployment
 requirements for this hardware.
 
 ## 2. Consequence: why this image runs systemd as PID 1
@@ -299,7 +299,7 @@ Docker service, pointing its storage at external ext4 storage) needed before eit
 works.
 
 ### 4c. Running on RutOS (no `docker compose`) — plain `docker run`
-Use the `start-rtkbase-rutc50.sh` script in a crontab to start the image.
+Use the `start-rtkbase-rutc.sh` script in a crontab to start the image.
 
 
 ### 4d. Managing the container (restart, update the USB device, upgrade the image)

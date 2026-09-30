@@ -6,3 +6,4 @@
 # Contains real secrets (Flask session key, web login password hash) and potentially real
 # GPS coordinates of the base station once configured -- never commit this.
 rtkbase-data/
+.DS_Store

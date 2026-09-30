@@ -10,7 +10,7 @@
 
 ## État actuel
 - Le projet est structuré pour être buildé sur Mac et déployé sur Teltonika.
-- Le script `start-rtkbase-rutc50.sh` est le point d'entrée pour le déploiement sur routeur.
+- Le script `start-rtkbase-rutc.sh` est le point d'entrée pour le déploiement sur routeur.
 
 ## À faire / Points de vigilance
 - Vérifier la compatibilité des nouveaux chemins de montage si le répertoire d'installation change.
